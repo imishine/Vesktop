@@ -4,11 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { BuildContext, BuildOptions, context } from "esbuild";
-import { copyFile } from "fs/promises";
+import { copyFile, rm } from "fs/promises";
 
-import vencordDep from "./vencordDep.mjs";
+import { BuildContext, BuildOptions, context } from "esbuild";
+
 import { includeDirPlugin } from "./includeDirPlugin.mts";
+import vencordDep from "./vencordDep.mjs";
 
 const isDev = process.argv.includes("--dev");
 
@@ -51,6 +52,19 @@ async function copyVenmic() {
             "./static/dist/venmic-arm64.node"
         )
     ]).catch(() => console.warn("Failed to copy venmic. Building without venmic support"));
+}
+
+async function copyGameDetection() {
+    const prebuilds = "./node_modules/@vencord/game-detection/prebuilds";
+
+    return Promise.all(
+        ["x64", "arm64"].map(async arch => {
+            const dest = `./static/dist/game-detection-${arch}.node`;
+            // Overwriting in place crashes a running instance, as the addon is mapped into memory
+            await rm(dest, { force: true });
+            await copyFile(`${prebuilds}/${process.platform}-${arch}/rpc_native.node`, dest);
+        })
+    ).catch(() => console.warn("Failed to copy game detection. Building without game detection support"));
 }
 
 async function copyLibVesktop() {
@@ -103,17 +117,12 @@ await Promise.all([
     copyVenmic(),
     copyLibVesktop(),
     copyWaylandProtocols(),
+    copyGameDetection(),
     createContext({
         ...NodeCommonOpts,
         entryPoints: ["src/main/index.ts"],
         outfile: "dist/js/main.js",
         footer: { js: "//# sourceURL=VesktopMain" }
-    }),
-    createContext({
-        ...NodeCommonOpts,
-        entryPoints: ["src/main/arrpc/worker.ts"],
-        outfile: "dist/js/arRpcWorker.js",
-        footer: { js: "//# sourceURL=VesktopArRpcWorker" }
     }),
     createContext({
         ...NodeCommonOpts,
