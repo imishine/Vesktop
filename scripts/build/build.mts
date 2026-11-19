@@ -114,7 +114,7 @@ async function copyWaylandProtocols() {
     console.log("using local wayland-protocols build");
   } catch {
     console.log(
-      "Using prebuilt wayland-protocols binaries. Run `pnpm buildWaylandProtocols` and build again to bu>
+      "Using prebuilt wayland-protocols binaries. Run `pnpm buildWaylandProtocols` and build again to build from source",
     );
     return Promise.all([
       copyFile(
