@@ -14,24 +14,24 @@ import vencordDep from "./vencordDep.mjs";
 const isDev = process.argv.includes("--dev");
 
 const CommonOpts: BuildOptions = {
-    minify: !isDev,
-    bundle: true,
-    sourcemap: "linked",
-    logLevel: "info"
+  minify: !isDev,
+  bundle: true,
+  sourcemap: "linked",
+  logLevel: "info",
 };
 
 const NodeCommonOpts: BuildOptions = {
-    ...CommonOpts,
-    format: "cjs",
-    platform: "node",
-    external: ["electron"],
-    target: ["esnext"],
-    loader: {
-        ".node": "file"
-    },
-    define: {
-        IS_DEV: JSON.stringify(isDev)
-    }
+  ...CommonOpts,
+  format: "cjs",
+  platform: "node",
+  external: ["electron"],
+  target: ["esnext"],
+  loader: {
+    ".node": "file",
+  },
+  define: {
+    IS_DEV: JSON.stringify(isDev),
+  },
 };
 
 // uiohook-napi finds its binary with node-gyp-build, so point that at the copy in static/dist (see copyUiohook)
@@ -59,11 +59,11 @@ async function copyNativeModule(src: string, dest: string) {
 
 const contexts = [] as BuildContext[];
 async function createContext(options: BuildOptions) {
-    contexts.push(await context(options));
+  contexts.push(await context(options));
 }
 
 async function copyVenmic() {
-    if (process.platform !== "linux") return;
+  if (process.platform !== "linux") return;
 
     return Promise.all([
         copyNativeModule(
@@ -91,7 +91,7 @@ async function copyUiohook() {
 }
 
 async function copyGameDetection() {
-    const prebuilds = "./node_modules/@vencord/game-detection/prebuilds";
+  const prebuilds = "./node_modules/@vencord/game-detection/prebuilds";
 
     return Promise.all(
         ["x64", "arm64"].map(arch =>
@@ -103,8 +103,38 @@ async function copyGameDetection() {
     ).catch(() => console.warn("Failed to copy game detection. Building without game detection support"));
 }
 
+async function copyWaylandProtocols() {
+  if (process.platform !== "linux") return;
+
+  try {
+    await copyFile(
+      "./packages/wayland-protocols/target/release/wayland-protocols.node",
+      `./static/dist/wayland-protocols-${process.arch}.node`,
+    );
+    console.log("using local wayland-protocols build");
+  } catch {
+    console.log(
+      "Using prebuilt wayland-protocols binaries. Run `pnpm buildWaylandProtocols` and build again to bu>
+    );
+    return Promise.all([
+      copyFile(
+        "./packages/wayland-protocols/prebuilds/wayland-protocols-x64.node",
+        "./static/dist/wayland-protocols-x64.node",
+      ),
+      copyFile(
+        "./packages/wayland-protocols/prebuilds/wayland-protocols-arm64.node",
+        "./static/dist/wayland-protocols-arm64.node",
+      ),
+    ]).catch(() =>
+      console.warn(
+        "Failed to copy wayland-protocols. Building without native wayland idle support",
+      ),
+    );
+  }
+}
+
 async function copyLibVesktop() {
-    if (process.platform !== "linux") return;
+  if (process.platform !== "linux") return;
 
     try {
         await copyNativeModule(
@@ -130,6 +160,7 @@ await Promise.all([
     copyVenmic(),
     copyLibVesktop(),
     copyGameDetection(),
+    copyWaylandProtocols(),
     copyUiohook(),
     createContext({
         ...NodeCommonOpts,
@@ -174,12 +205,12 @@ await Promise.all([
 const watch = process.argv.includes("--watch");
 
 if (watch) {
-    await Promise.all(contexts.map(ctx => ctx.watch()));
+  await Promise.all(contexts.map((ctx) => ctx.watch()));
 } else {
-    await Promise.all(
-        contexts.map(async ctx => {
-            await ctx.rebuild();
-            await ctx.dispose();
-        })
-    );
+  await Promise.all(
+    contexts.map(async (ctx) => {
+      await ctx.rebuild();
+      await ctx.dispose();
+    }),
+  );
 }
